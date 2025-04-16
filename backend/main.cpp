@@ -1,16 +1,14 @@
 #include <iostream>
-#include <fstream>
-#include <sstream>
-#include <string>
 #include <thread>
+#include <string>
+#include <sstream>
+#include <fstream>
 #include <map>
-#include <vector>
-#include <cstdlib>
-#include <ctime>
 #include <filesystem>
-#include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 #define PORT 8080
 
@@ -30,65 +28,70 @@ std::string getMimeType(const std::string& path) {
     return "text/plain";
 }
 
-// mock ping 
-std::string handlePing() {
-    srand(time(nullptr));
-    int latency = rand() % 100 + 1;
-    int ttl = 64;
-    std::stringstream ss;
-    ss << R"({"ip": "192.0.2.1", "latency_ms": )" << latency << R"(, "ttl": )" << ttl << "}";
-    return ss.str();
-}
 
-// mock port scan
-std::string handleScan() {
-    return R"({"ip": "203.0.113.5", "open_ports": [22, 80, 443]})";
-}
+// Forward declarations of tool handlers
+std::string handlePing(const std::string& host);
+std::string handleScan(const std::string& ip);
+std::string handleWhois(const std::string& domain);
+std::string handleIpInfo();
 
-// mock Whois
-std::string handleWhois() {
-    return readFile("data/whois_data.json");
-}
+std::map<std::string, std::string> parseQueryParams(const std::string& request) {
+    std::map<std::string, std::string> params;
+    auto qPos = request.find('?');
+    if (qPos == std::string::npos) return params;
 
-// mock IP info
-std::string handleIpInfo() {
-    return readFile("data/ip_info.json");
+    auto query = request.substr(qPos + 1);
+    std::stringstream ss(query);
+    std::string token;
+    while (getline(ss, token, '&')) {
+        auto eqPos = token.find('=');
+        if (eqPos != std::string::npos) {
+            auto key = token.substr(0, eqPos);
+            auto val = token.substr(eqPos + 1);
+            params[key] = val;
+        }
+    }
+    return params;
 }
 
 void handleClient(int clientSocket) {
-    char buffer[4096];
-    read(clientSocket, buffer, 4096);
+    char buffer[8192] = {0};
+    read(clientSocket, buffer, sizeof(buffer));
     std::string request(buffer);
 
-    std::string responseBody, contentType;
+    std::string path = request.substr(4, request.find(' ', 4) - 4);
+    std::string responseBody;
+    std::string contentType = "text/plain";
     int statusCode = 200;
 
-    if (request.find("GET /api/ping") == 0) {
-        responseBody = handlePing();
+    if (path.rfind("/api/ping", 0) == 0) {
+        auto params = parseQueryParams(path);
+        std::string host = params["host"];
+        responseBody = handlePing(host);
         contentType = "application/json";
-    } else if (request.find("GET /api/scan") == 0) {
-        responseBody = handleScan();
+    } else if (path.rfind("/api/scan", 0) == 0) {
+        auto params = parseQueryParams(path);
+        std::string ip = params["ip"];
+        responseBody = handleScan(ip);
         contentType = "application/json";
-    } else if (request.find("GET /api/whois") == 0) {
-        responseBody = handleWhois();
+    } else if (path.rfind("/api/whois", 0) == 0) {
+        auto params = parseQueryParams(path);
+        std::string domain = params["domain"];
+        responseBody = handleWhois(domain);
         contentType = "application/json";
-    } else if (request.find("GET /api/ip") == 0) {
+    } else if (path == "/api/ipinfo") {
         responseBody = handleIpInfo();
         contentType = "application/json";
     } else {
+        // Static file handling
         std::string filePath = "public/index.html";
-        std::string urlPath = request.substr(4, request.find(" ", 4) - 4);
-        if (urlPath != "/") {
-            filePath = "public" + urlPath;
-        }
-
+        if (path != "/") filePath = "public" + path;
         if (std::filesystem::exists(filePath)) {
             responseBody = readFile(filePath);
             contentType = getMimeType(filePath);
         } else {
             responseBody = "404 Not Found";
             statusCode = 404;
-            contentType = "text/plain";
         }
     }
 
@@ -105,27 +108,27 @@ void handleClient(int clientSocket) {
 
 int main() {
     int serverFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (serverFd == 0) {
-        perror("Socket failed");
-        exit(EXIT_FAILURE);
+    if (serverFd == -1) {
+        perror("Socket creation failed");
+        return 1;
     }
 
-    sockaddr_in address{};
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(PORT);
+    sockaddr_in serverAddr{};
+    serverAddr.sin_family = AF_INET;
+    serverAddr.sin_addr.s_addr = INADDR_ANY;
+    serverAddr.sin_port = htons(PORT);
 
-    if (bind(serverFd, (struct sockaddr*)&address, sizeof(address)) < 0) {
+    if (bind(serverFd, (sockaddr*)&serverAddr, sizeof(serverAddr)) < 0) {
         perror("Bind failed");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
     if (listen(serverFd, 10) < 0) {
         perror("Listen failed");
-        exit(EXIT_FAILURE);
+        return 1;
     }
 
-    std::cout << "[NetScope] Server running on http://localhost:" << PORT << std::endl;
+    std::cout << "[NetScope] Server started on http://localhost:" << PORT << "\n";
 
     while (true) {
         int clientSocket = accept(serverFd, nullptr, nullptr);
