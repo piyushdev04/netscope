@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NetScope Tools</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <h1>NetScope: Networking Toolkit</h1>
+  <div class="tool">
+    <button onclick="runTool('ping')">Ping</button>
+    <pre id="pingOutput"></pre>
+  </div>
+  <div class="tool">
+    <button onclick="runTool('scan')">Port Scan</button>
+    <pre id="scanOutput"></pre>
+  </div>
+  <div class="tool">
+    <button onclick="runTool('whois')">Whois</button>
+    <pre id="whoisOutput"></pre>
+  </div>
+  <div class="tool">
+    <button onclick="runTool('ip')">My IP</button>
+    <pre id="ipOutput"></pre>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
