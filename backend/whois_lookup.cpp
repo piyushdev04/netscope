@@ -1,3 +1,4 @@
+#include "whois_lookup.h"
 #include <iostream>
 #include <cstring>
 #include <unistd.h>
@@ -49,21 +50,4 @@ std::string whoisQuery(const std::string& domain) {
     close(sockfd);
 
     return response;
-}
-
-int main(int argc, char* argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <domain>" << std::endl;
-        return 1;
-    }
-
-    const std::string domain = argv[1];
-
-    std::cout << "Performing WHOIS lookup for: " << domain << std::endl;
-    
-    std::string result = whoisQuery(domain);
-
-    std::cout << "WHOIS Response:\n" << result << std::endl;
-
-    return 0;
 }
