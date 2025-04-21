@@ -1,3 +1,4 @@
+#include "ip_info.h"
 #include <iostream>
 #include <string>
 #include <curl/curl.h>
@@ -39,15 +40,4 @@ std::string getPublicIP(const std::string& url) {
 
     curl_global_cleanup();
     return readBuffer;
-}
-
-int main() {
-    std::string apiURL = "https://api.ipify.org";  // URL to get public IP
-    std::cout << "Fetching public IP address..." << std::endl;
-
-    std::string publicIP = getPublicIP(apiURL);
-
-    std::cout << "Your public IP address is: " << publicIP << std::endl;
-
-    return 0;
 }
