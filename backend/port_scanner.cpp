@@ -1,3 +1,4 @@
+#include "port_scanner.h"
 #include <iostream>
 #include <cstdlib>
 #include <cstring>
@@ -45,36 +46,16 @@ bool isPortOpen(const std::string& ip, int port) {
     return false;
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 3) {
-        std::cerr << "Usage: " << argv[0] << " <hostname or IP> <start_port-end_port>" << std::endl;
-        return 1;
-    }
-
-    const std::string target_ip = argv[1];
-    std::string range = argv[2];
-    int start_port, end_port;
-
-    // Parse the port range (e.g., 20-1000)
-    size_t dash_pos = range.find('-');
-    if (dash_pos == std::string::npos) {
-        std::cerr << "Invalid port range format. Use <start_port-end_port>" << std::endl;
-        return 1;
-    }
-
-    start_port = std::stoi(range.substr(0, dash_pos));
-    end_port = std::stoi(range.substr(dash_pos + 1));
-
-    std::cout << "Scanning ports on " << target_ip << " from " << start_port << " to " << end_port << std::endl;
-
-    // Scan the ports in the specified range
-    for (int port = start_port; port <= end_port; ++port) {
-        if (isPortOpen(target_ip, port)) {
-            std::cout << "Port " << port << " is open." << std::endl;
+// Function to scan a range of ports on a given IP
+std::string portScanner(const std::string& ip, int startPort, int endPort) {
+    std::string result = "Scanning ports on " + ip + " from " + std::to_string(startPort) + " to " + std::to_string(endPort) + ":\n";
+    
+    for (int port = startPort; port <= endPort; ++port) {
+        if (isPortOpen(ip, port)) {
+            result += "Port " + std::to_string(port) + " is open.\n";
         } else {
-            std::cout << "Port " << port << " is closed." << std::endl;
+            result += "Port " + std::to_string(port) + " is closed.\n";
         }
     }
-
-    return 0;
+    return result;
 }
