@@ -1,3 +1,4 @@
+#include "ping_tool.h"
 #include <iostream>
 #include <cstring>
 #include <cstdlib>
@@ -7,6 +8,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/time.h>
+#include <string>
 
 #define PING_PKT_SIZE 64
 #define ICMP_HEADER_LEN 8
@@ -44,24 +46,18 @@ void create_ping_packet(char *packet, int pid) {
     icmp_hdr->icmp_cksum = checksum(icmp_hdr, sizeof(struct icmp));
 }
 
-int main(int argc, char *argv[]) {
-    if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " <hostname or IP>" << std::endl;
-        return 1;
-    }
-
-    const char *target_host = argv[1];
+// Ping function that returns a string response
+std::string pingTool(const std::string& host) {
     int sockfd = socket(AF_INET, SOCK_RAW, IPPROTO_ICMP);
 
     if (sockfd < 0) {
-        perror("Socket creation failed");
-        return 1;
+        return "Error: Unable to create socket";
     }
 
     struct sockaddr_in target_addr;
     target_addr.sin_family = AF_INET;
     target_addr.sin_port = 0;
-    target_addr.sin_addr.s_addr = inet_addr(target_host);
+    target_addr.sin_addr.s_addr = inet_addr(host.c_str());
 
     // set socket timeout
     struct timeval timeout;
@@ -69,43 +65,41 @@ int main(int argc, char *argv[]) {
     timeout.tv_usec = 0;
 
     if (setsockopt(sockfd, SOL_SOCKET, SO_RCVBUF, &timeout, sizeof(timeout)) < 0) {
-        perror("setsockopt failed");
-        return 1;
+        close(sockfd);
+        return "Error: Unable to set socket timeout";
     }
 
     char packet[PING_PKT_SIZE];
-    int pid = getpid(); // get process ID as the indentifier
+    int pid = getpid(); // get process ID as the identifier
 
-    // send ICMP request and wait for reply
+    // send ICMP request
     create_ping_packet(packet, pid);
     int sent_bytes = sendto(sockfd, packet, sizeof(packet), 0, (struct sockaddr *)&target_addr, sizeof(target_addr));
     if (sent_bytes < 0) {
-        perror("Send failed");
-        return 1;
+        close(sockfd);
+        return "Error: Unable to send ICMP packet";
     }
-
-    std::cout << "Ping sent to " << target_host << std::endl;
 
     char buffer[1024];
     struct sockaddr_in from_addr;
     socklen_t addr_len = sizeof(from_addr);
 
+    // wait for a reply
     int recv_len = recvfrom(sockfd, buffer, sizeof(buffer), 0, (struct sockaddr *)&from_addr, &addr_len);
     if (recv_len < 0) {
-        perror("Receive failed");
-        return 1;
+        close(sockfd);
+        return "Error: Timeout waiting for reply";
     }
 
     struct ip *ip_hdr = (struct ip *)buffer;
     struct icmp *icmp_hdr = (struct icmp *)(buffer + (ip_hdr->ip_hl << 2));
 
-    // Check if it is an ICMP Echo Reply
+    // Check if it's an ICMP Echo Reply
     if (icmp_hdr->icmp_type == ICMP_ECHOREPLY) {
-        std::cout << "Received reply from " << target_host << " (" << inet_ntoa(from_addr.sin_addr) << ")" << std::endl;
+        close(sockfd);
+        return "Reply received from " + host;
     } else {
-        std::cout << "Received unknown ICMP response" << std::endl;
+        close(sockfd);
+        return "Received unknown ICMP response from " + host;
     }
-
-    close(sockfd);
-    return 0;
 }
