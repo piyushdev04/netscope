@@ -58,6 +58,8 @@ void handleClient(int clientSocket) {
     std::string contentType = "text/plain";
     int statusCode = 200;
 
+    std::cout << "Requested path: " << path << std::endl;  // Debugging line
+
     if (path.rfind("/api/ping", 0) == 0) {
         auto params = parseQueryParams(path);
         std::string host = params["host"];
@@ -77,8 +79,11 @@ void handleClient(int clientSocket) {
         responseBody = handleIpInfo();
         contentType = "application/json";
     } else {
-        std::string filePath = "public/index.html";
-        if (path != "/") filePath = "public" + path;
+        std::string filePath = "../public/index.html";
+        if (path != "/") filePath = "../public" + path;
+
+        std::cout << "Attempting to serve file: " << filePath << std::endl;  // Debugging line
+
         if (std::filesystem::exists(filePath)) {
             responseBody = readFile(filePath);
             contentType = getMimeType(filePath);
@@ -98,6 +103,7 @@ void handleClient(int clientSocket) {
     send(clientSocket, response.str().c_str(), response.str().size(), 0);
     close(clientSocket);
 }
+
 
 int main() {
     int server_fd, new_socket;
